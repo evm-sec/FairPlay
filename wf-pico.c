@@ -1,6 +1,9 @@
 #include <wiringPi.h>
+#include <wiringSerial.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <errno.h>
 
 #define byte unsigned char
 
@@ -10,7 +13,7 @@
 typedef struct {
   byte inning_tens:3;
   byte error:1;
-  byte unused:3;
+  byte unused:3:
   byte bright:1;
   
   byte ball:3;
@@ -143,27 +146,55 @@ void txBit(char b)
   delayMicroseconds(30-d);
 } 
 
-//size in bits
-void txMsg(unsigned char * m, int size)
+#define MSG_BUF_LEN 9
+#define MSG_START_CHAR 0x55
+
+unsigned char msg_checksum(unsigned char * msg) {
+  int i;
+  unsigned char ck=0;
+  for(i=0; i<MSG_BUF_LEN-1; i++) {
+    ck += msg[i];
+  }
+  return ck;
+}
+
+//size in bytes
+void txMsg(int fd, unsigned char * m, int size)
 {
   int i=0;
   int byte_off, bit_off;
   char b;
+  unsigned char t=0;
+  unsigned char ck;
+  unsigned char m_t[MSG_BUF_LEN];
 
+  ck = msg_checksum(m);
+  
+  m_t[0] = MSG_START_CHAR;
   for (i=0; i<size; i++) {
     byte_off=i/8;
     bit_off=i%8;
     b=m[byte_off]>>(7-bit_off);
-    txBit(b&1);
-    //printf("%d",b&1);
-    //printf("%d %02x %02x\n",i,m[byte_off],b&1);
+    t<<=1;
+    t|=(b&1);
+    if (bit_off == 7) {
+      //printf("sending %02hhX\n", t);
+      //serialPutchar(fd, t);
+      m_t[byte_off+1] = t;
+    }
   }
-  //printf("\n");
+  ck = msg_checksum(m_t);
+  m_t[MSG_BUF_LEN-1]=ck;
+
+  for (i=0; i<MSG_BUF_LEN; i++) {
+    printf("sending %02hhX\n", m_t[i]);
+    serialPutchar(fd, m_t[i]);
+  }
 }
 
 int main()
 {
-  int i;
+  int i,fd;
   unsigned long long tword,t;
   unsigned long long * tp;
   bb_message_t b;
@@ -171,18 +202,20 @@ int main()
   wiringPiSetup();
   pinMode(0,OUTPUT);
  
+  if ((fd = serialOpen("/dev/serial0", 9600)) < 0 )
+  {
+    printf("Unable to open serial device: %s\n", strerror(errno));
+    return 1;
+  }
+  printf("Successfully opened tty fd: %d", fd);
   //tword=0x5555555555555555;
 
   i=0;
   while(1) {
-    if (i%5 == 0) {
-      fill_struct(&b);
-      printMsg(&b);
-    }
-    txMsg((unsigned char *)&b, 56);
-    //delay to next train
-    //50 - (30microsec * 56 bits)
-    delay(48.32);
+    fill_struct(&b);
+    printMsg(&b);
+    txMsg(fd, (unsigned char *)&b, 56);
+    delay(250);
     i++;
   }
 
