@@ -13,7 +13,7 @@
 typedef struct {
   byte inning_tens:3;
   byte error:1;
-  byte unused:3:
+  byte unused:3;
   byte bright:1;
   
   byte ball:3;
