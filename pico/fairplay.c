@@ -8,11 +8,11 @@
 
 //#define DEBUG
 
-//#ifdef DEBUG
+#ifdef DEBUG
 #define dbg_print printf
-//#else
-//#define dbg_print
-//#endif
+#else
+#define dbg_print
+#endif
 
 #define MSG_BUF_LEN 9
 #define MSG_START_CHAR 0x55
@@ -125,10 +125,18 @@ void uart_setup() {
 
 }
 
-void txBit(char b, int gp)
+//Added "first" hack due to slow response of MAX3232 driver board
+//if first bit is a 0, make the high part 7 us long
+//board will receive it as a 5 us pulse
+void txBit(char b, int gp, int first)
 {
   int d=5;
   b&=1;
+
+  if (first == 1) {
+    d=7;
+  }
+
   if (b==1) {
     d=20;
   }
@@ -136,9 +144,9 @@ void txBit(char b, int gp)
   //the output signal because the
   //MAX3232 will invert it
   gpio_put(gp, 0); //low 
-  sleep_us(d);
+  busy_wait_us_32(d);
   gpio_put(gp, 1); //high
-  sleep_us(30-d);
+  busy_wait_us_32(30-d);
 } 
 
 //size in bits
@@ -155,7 +163,12 @@ void txMsg(unsigned char * m, int size, int gp)
     byte_off=i/8;
     bit_off=i%8;
     b=m[byte_off]>>(7-bit_off);
-    txBit(b&1, gp);
+    if (i==0) {
+      txBit(b&1, gp, 1);
+    }
+    else {
+      txBit(b&1, gp, 0);
+    }
   }
 
   //restore_interrupts(int_status);
@@ -201,7 +214,7 @@ int main() {
     dbg_print("TXing...\n");
     msg_print(g_output_msg+1);
     txMsg((char *)g_output_msg+1,56, GPIO_TO_USE);
-    sleep_us(48320);  //50ms - (56 * 30 us)
+    busy_wait_us_32(48320);  //50ms - (56 * 30 us)
   }
 
   return 0;

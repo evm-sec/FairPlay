@@ -1,6 +1,21 @@
 <html>
+<head>
+<style>
+  form {
+    font-size: 24px;
+    font-family: Helvetica;
+    }
+  input {
+    font-size: 24px;
+    font-family: Helvetica;
+  }
+  h2 {
+    font-size: 28px;
+    font-family: Helvetica;
+  }
+</style>
+</head>
 <body>
-
 <h2>Scoreboard</h2>
 <?php
 //Init int vars to 0 and binary vars to off 
@@ -48,13 +63,21 @@ foreach ($_POST[button] as $key => $value) {
 //autoincrements outs
 if ($vals['balls'] == 4) {
   $vals['balls'] = 0;
+  $vals['strikes'] = 0;
 }
 if ($vals['strikes'] == 3) {
   $vals['strikes'] = 0;
+  $vals['balls'] = 0;
   $vals['outs']++;
 }
 if ($vals['outs'] == 3) {
   $vals['outs'] = 0;
+}
+
+//if "clear batter" button used - reset balls & strikes
+if (isset($_POST['clear'])) {
+  $vals['balls'] = 0;
+  $vals['strikes'] = 0;
 }
 
 //write to file
@@ -97,7 +120,8 @@ Outs: <input type="text" name="val[outs]" size="2" value="<?php echo $vals[outs]
 Hit: <input type="checkbox" name="bin_val[hit]" <?php echo $bin_vals[hit];?>> 
 Error: <input type="checkbox" name="bin_val[error]" <?php echo $bin_vals[error];?>><br>
 Bright: <input type="checkbox" name="bin_val[bright]" <?php echo $bin_vals[bright];?>><br>
-  <input type="submit" value="Update">
+  <input type="submit" value="Update"><br>
+  <input type="submit" value="Clear Batter" name="clear">
 </form>
 </body>
 </html>
